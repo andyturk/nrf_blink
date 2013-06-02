@@ -19,6 +19,7 @@ NRF_SOURCE              := $(NRF_SDK)/Source
 # Toolchain configuration
 TARGET                  := arm-none-eabi
 CC                      := $(BINUTILS_ROOT)/bin/$(TARGET)-gcc
+CXX                     := $(BINUTILS_ROOT)/bin/$(TARGET)-g++
 AS                      := $(BINUTILS_ROOT)/bin/$(TARGET)-as
 OBJCOPY					:= $(BINUTILS_ROOT)/bin/$(TARGET)-objcopy
 JLINKEXE                := $(JLINK_ROOT)/bin/JLinkExe
@@ -33,11 +34,13 @@ BUILD                   := build
 OBJ                      = $(BUILD)/obj
 
 # Source files
-C_SRC                   += main.c nrf51_interrupts.c
+C_SRC                   += nrf51_interrupts.c
 C_SRC                   += $(wildcard $(NRF_SOURCE)/nrf_delay/*.c)
 
+CXX_SRC                 += main.cc
+
 # Object files
-OBJECTS                  = $(addprefix $(OBJ)/, $(C_SRC:.c=.o))
+OBJECTS                  = $(addprefix $(OBJ)/, $(C_SRC:.c=.o) $(CXX_SRC:.cc=.o))
 
 CFLAGS                  += -DNRF51
 CFLAGS                  += -DBOARD_PCA10001
@@ -51,6 +54,15 @@ CFLAGS                  += -mthumb
 CFLAGS                  += -ffunction-sections
 CFLAGS                  += -Wa,-alh=$(@:.o=.lst)
 CFLAGS                  += -fdata-sections
+
+CXXFLAGS                += $(CFLAGS)
+CXXFLAGS                += -fno-rtti
+CXXFLAGS                += -fno-exceptions
+CXXFLAGS                += -fms-extensions
+CXXFLAGS                += -Wno-pmf-conversions
+CXXFLAGS                += -Wno-unused-parameter
+CXXFLAGS                += -Wno-psabi
+CXXFLAGS                += -std=gnu++0x
 
 LDFLAGS                 += -mcpu=cortex-m0
 LDFLAGS                 += -mthumb
@@ -80,6 +92,7 @@ info :
 	@echo USER: $(USER)
 	@echo OBJECTS: $(OBJECTS)
 	@echo C_SRC: $(C_SRC)
+	@echo CXX_SRC: $(CXX_SRC)
 
 disable_cdc :
 ifeq ($(USER),root)
@@ -141,8 +154,15 @@ $(OBJ)/%.o : %.c
 	@echo Compiling $(<F)
 	@$(CC) $(CFLAGS) -c $< -o $(@)
 
+$(OBJ)/%.o : %.cc
+	@echo Compiling $(<F)
+	@$(CXX) $(CXXFLAGS) -c $< -o $(@)
+
 $(OBJ)/%.E : %.c
-	$(CC) $(CFLAGS) -E -c $< -o $(@)
+	@$(CC) $(CFLAGS) -E -c $< -o $(@)
+
+$(OBJ)/%.E : %.cc
+	@$(CXX) $(CXXFLAGS) -E -c $< -o $(@)
 
 $(OBJ)/%.o : %.s
 	@echo Assembling $(<F)
