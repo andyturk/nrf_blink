@@ -3,3 +3,4 @@
 
 build/*
 JLink.log
+local_*.mk
