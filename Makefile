@@ -6,12 +6,14 @@
 # how the host machine is configured. Override the definitions here in
 # the optional local_vars.mk
 NRF_ROOT                ?= /Users/andy/code/nRF51822
-NRF_SOFTDEVICE_ROOT     ?= $(NRF_ROOT)/s110_nrf51822_5.1.0
+NRF_SOFTDEVICE_ROOT     ?= $(NRF_ROOT)/$(NRF_SOFTDEVICE_VERSION)
 BINUTILS_ROOT           ?= /usr/local/arm/gcc-arm-none-eabi-4_7-2013q1
 JLINK_ROOT              ?= /usr/local/jlink
+KEXT_ROOT               ?= /System/Library/Extensions/IOUSBFamily.kext/Contents/PlugIns
 
+NRF_SOFTDEVICE_VERSION  ?= s110_nrf51822_5.1.0
 NRF_SDK                 := $(NRF_ROOT)/sdk
-NRF_SOFTDEVICE_HEX      := $(NRF_SOFTDEVICE_ROOT)/$(notdir $(NRF_SOFTDEVICE_ROOT))_softdevice.hex
+NRF_SOFTDEVICE_HEX      := $(NRF_SOFTDEVICE_ROOT)/$(NRF_SOFTDEVICE_VERSION)_softdevice.hex
 NRF_SOURCE              := $(NRF_SDK)/Source
 
 # Toolchain configuration
@@ -41,6 +43,7 @@ CFLAGS                  += -DNRF51
 CFLAGS                  += -DBOARD_PCA10001
 CFLAGS                  += -I$(NRF_SDK)/Include/gcc
 CFLAGS                  += -I$(NRF_SDK)/Include
+CFLAGS                  += -I$(NRF_SOFTDEVICE_ROOT)/$(NRF_SOFTDEVICE_VERSION)_API/include
 CFLAGS                  += -g
 CFLAGS                  += -Wall
 CFLAGS                  += -mcpu=cortex-m0
@@ -48,7 +51,6 @@ CFLAGS                  += -mthumb
 CFLAGS                  += -ffunction-sections
 CFLAGS                  += -Wa,-alh=$(@:.o=.lst)
 CFLAGS                  += -fdata-sections
-#CFLAGS                  += -Wa,-a,-ad
 
 LDFLAGS                 += -mcpu=cortex-m0
 LDFLAGS                 += -mthumb
@@ -81,22 +83,22 @@ info :
 
 disable_cdc :
 ifeq ($(USER),root)
-	-@kextunload /System/Library/Extensions/IOUSBFamily.kext/Contents/PlugIns/AppleUSBCDCACMData.kext >/dev/null 2>&1
-	-@kextunload /System/Library/Extensions/IOUSBFamily.kext/Contents/PlugIns/AppleUSBCDCECMData.kext >/dev/null 2>&1
-	-@kextunload /System/Library/Extensions/IOUSBFamily.kext/Contents/PlugIns/AppleUSBCDCACMControl.kext >/dev/null 2>&1
-	-@kextunload /System/Library/Extensions/IOUSBFamily.kext/Contents/PlugIns/AppleUSBCDC.kext >/dev/null 2>&1
+	-@kextunload $(KEXT_ROOT)/AppleUSBCDCACMData.kext >/dev/null 2>&1
+	-@kextunload $(KEXT_ROOT)/AppleUSBCDCECMData.kext >/dev/null 2>&1
+	-@kextunload $(KEXT_ROOT)/AppleUSBCDCACMControl.kext >/dev/null 2>&1
+	-@kextunload $(KEXT_ROOT)/AppleUSBCDC.kext >/dev/null 2>&1
 	@echo "Verify with 'make cdc'"
-	@echo Then unplug and re-plug your J-Link devices.
+	@echo "Then unplug and re-plug your J-Link devices."
 else
 	@echo "You must be root to do this. 'sudo make disable_cdc'"
 endif
 
 enable_cdc :
 ifeq ($(USER),root)
-	-@kextload /System/Library/Extensions/IOUSBFamily.kext/Contents/PlugIns/AppleUSBCDC.kext
-	-@kextload /System/Library/Extensions/IOUSBFamily.kext/Contents/PlugIns/AppleUSBCDCACMControl.kext
-	-@kextload /System/Library/Extensions/IOUSBFamily.kext/Contents/PlugIns/AppleUSBCDCACMData.kext
-	-@kextload /System/Library/Extensions/IOUSBFamily.kext/Contents/PlugIns/AppleUSBCDCECMData.kext
+	-@kextload $(KEXT_ROOT)/AppleUSBCDC.kext
+	-@kextload $(KEXT_ROOT)/AppleUSBCDCACMControl.kext
+	-@kextload $(KEXT_ROOT)/AppleUSBCDCACMData.kext
+	-@kextload $(KEXT_ROOT)/AppleUSBCDCECMData.kext
 else
 	@echo "You must be root to do this. 'sudo make enable_cdc'"
 endif
@@ -109,12 +111,20 @@ $(DIRS) :
 
 blink : $(BUILD)/blink.elf
 
-$(BUILD)/blink.elf : $(OBJECTS) $(MAKEFILE_LIST) | $(BUILD)
+$(BUILD)/blink_bare.elf : $(OBJECTS) $(MAKEFILE_LIST) | $(BUILD)
 	@echo Linking $(@)
 	@$(CC) \
 		-Xlinker -Map=$(patsubst %.elf,%.map,$(@)) \
 		$(LDFLAGS) \
 		-Tnrf51_bare.ld \
+		-o $(@) $(OBJECTS)
+
+$(BUILD)/blink.elf : $(OBJECTS) $(MAKEFILE_LIST) | $(BUILD)
+	@echo Linking $(@)
+	@$(CC) \
+		-Xlinker -Map=$(patsubst %.elf,%.map,$(@)) \
+		$(LDFLAGS) \
+		-Tnrf51_softdevice.ld \
 		-o $(@) $(OBJECTS)
 
 %.bin : %.elf
@@ -217,19 +227,7 @@ gdb_server :
 	$(JLINKGDBSERVER) -if SWD -device nRF51822 -speed 4000
 
 else
-jlink :
-	@echo "Please disable the CDC drivers first. 'sudo make disable_cdc'"
-
-flash_softdevice :
-	@echo "Please disable the CDC drivers first. 'sudo make disable_cdc'"
-
-flash_app :
-	@echo "Please disable the CDC drivers first. 'sudo make disable_cdc'"
-
-flash_bare :
-	@echo "Please disable the CDC drivers first. 'sudo make disable_cdc'"
-
-gdb_server :
+jlink flash_softdevice flash_app flash_bare gdb_server:
 	@echo "Please disable the CDC drivers first. 'sudo make disable_cdc'"
 
 cdc :
