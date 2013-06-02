@@ -1,10 +1,7 @@
 #include "nrf51.h"
 
 // provided by the linker file
-extern unsigned long __stack_end__;
-
-// to be called for an interrupt handler that isn't otherwise defined
-void Unused_Handler(void) {}
+extern "C" unsigned long __stack_end__;
 
 /*
  * This macro defines the names and order of the interrupt handlers for the
@@ -69,19 +66,28 @@ void Unused_Handler(void) {}
   INT(Reserved46) \
   INT(Reserved47)
 
-// Define PTR and INT to create forward declarations
+// To be called for an interrupt handler that isn't otherwise defined
+// This is extern "C" because GCC's alias attribute can't deal with
+// a mangled name. The other handlers are placed in the nrf51 namespace
+// as C++ functions.
+extern "C" void Unused_Handler(void) {}
+
+namespace nrf51 {
+
+  // Define PTR and INT to create forward declarations
 #define PTR(value)
 #define INT(name) void name ## _Handler(void) __attribute__ ((weak, alias("Unused_Handler")));
-NRF51_INTERRUPTS
+  NRF51_INTERRUPTS
 #undef INT
 #undef PTR
 
 // Expand the interrupt defnitions a second time to fill out the vector table
-__attribute__ ((section(".vectors"), used))
-void (*const gVectors[])() = {
+  __attribute__ ((section(".vectors"), used))
+  void (*const cortex_interrupt_vectors[])() = {
 #define PTR(value) value,
 #define INT(name) name ## _Handler,
-NRF51_INTERRUPTS
+    NRF51_INTERRUPTS
 #undef INT
 #undef PTR
+  };
 };
