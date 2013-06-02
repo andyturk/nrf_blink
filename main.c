@@ -12,7 +12,7 @@ int main(void)
   for(;;) {
     nrf_gpio_port_write(LED_PORT, 1 << (output_state + LED_OFFSET));
     output_state = (output_state + 1) & BLINKY_STATE_MASK;
-    nrf_delay_ms(100);
+    nrf_delay_ms(500);
   }
 }
 
