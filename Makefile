@@ -148,7 +148,7 @@ $(BUILD)/blink.elf : $(OBJECTS) $(MAKEFILE_LIST) | $(BUILD)
 	@echo Converting $(X) to $(@)
 	@$(OBJCOPY) -O ihex $(<) $(@)
 
-$(OBJECTS) : $(DIRS)
+$(OBJECTS) : | $(DIRS)
 
 $(OBJ)/%.o : %.c
 	@echo Compiling $(<F)
