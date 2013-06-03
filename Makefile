@@ -34,10 +34,9 @@ BUILD                   := build
 OBJ                      = $(BUILD)/obj
 
 # Source files
-C_SRC                   += nrf51_interrupts.c
 C_SRC                   += $(wildcard $(NRF_SOURCE)/nrf_delay/*.c)
 
-CXX_SRC                 += main.cc
+CXX_SRC                 += main.cc nrf51_interrupts.cc
 
 # Object files
 OBJECTS                  = $(addprefix $(OBJ)/, $(C_SRC:.c=.o) $(CXX_SRC:.cc=.o))
